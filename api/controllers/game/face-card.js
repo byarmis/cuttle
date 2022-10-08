@@ -35,7 +35,7 @@ module.exports = function (req, res) {
                   User.addToCollection(player.id, 'faceCards').members(card.id).usingConnection(db),
                 ];
 
-                return Promise.all([game, ...updatePromises]); // fixed
+                return Promise.all([game, ...updatePromises]);
               });
             }
             return Promise.reject({
@@ -56,7 +56,7 @@ module.exports = function (req, res) {
         return Promise.all([
           gameService.populateGame({ gameId: game.id }).usingConnection(db),
           game,
-        ]); // fixed
+        ]);
       });
     })
     .then(async function publishAndRespond(values) {

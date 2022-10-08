@@ -3,7 +3,7 @@ module.exports = function (req, res) {
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseOpponent = userService.findUser({ userId: req.body.opId });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
-  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard]) // fixed
+  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard])
     .then(function changeAndSave(values) {
       const [game, player, opponent, card] = values;
 
@@ -37,7 +37,7 @@ module.exports = function (req, res) {
                     .usingConnection(db),
                 ];
 
-                return Promise.all([game, ...updatePromises]); // fixed
+                return Promise.all([game, ...updatePromises]);
               });
             }
             return Promise.reject({
@@ -57,7 +57,7 @@ module.exports = function (req, res) {
         return Promise.all([
           gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
           values[0],
-        ]); // fixed
+        ]);
       });
     })
     .then(async function publishAndRespond(values) {

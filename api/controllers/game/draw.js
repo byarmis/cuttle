@@ -20,7 +20,7 @@ module.exports = function (req, res) {
   Promise.all([pGame, pUser])
     .then(function changeAndSave(values) {
       const [game, user] = values;
-      return sails.getDatastore().transaction((db) => {
+      sails.getDatastore().transaction((db) => {
         const updatePromises = [
           game,
           User.addToCollection(user.id, 'hand').members(game.topCard.id).usingConnection(db),

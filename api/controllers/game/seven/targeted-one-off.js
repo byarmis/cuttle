@@ -73,7 +73,7 @@ module.exports = function (req, res) {
                   .usingConnection(db),
               ];
 
-              return Promise.all([game, ...updatePromises]); // fixed
+              return Promise.all([game, ...updatePromises]);
             });
           }
         } else {

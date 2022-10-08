@@ -7,7 +7,7 @@ module.exports = function (req, res) {
           Game.replaceCollection(game.id, 'deck').members([]).usingConnection(db),
           Game.addToCollection(game.id, 'scrap').members(game.scrap).usingConnection(db),
         ];
-        return Promise.all([game, ...updatePromises]); // fixed
+        return Promise.all([game, ...updatePromises]);
       });
     })
     .then(function populateGame(values) {
