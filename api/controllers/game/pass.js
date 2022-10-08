@@ -2,7 +2,7 @@
 module.exports = function (req, res) {
   const promiseGame = gameService.findGame({ gameId: req.session.game });
   const promisePlayer = userService.findUser({ userId: req.session.usr });
-  return Promise.all([promiseGame, promisePlayer])
+  return Promise.all([promiseGame, promisePlayer]) //fixed
     .then(function changeAndSave(values) {
       const [game, player] = values;
       const playerUpdates = {};
@@ -29,11 +29,14 @@ module.exports = function (req, res) {
             message: 'You can only pass when there are no cards in the deck',
           });
         }
-        updatePromises.push(
-          Game.updateOne({ id: game.id }).set(gameUpdates),
-          User.updateOne({ id: player.id }).set(playerUpdates)
-        );
-        return Promise.all([game, ...updatePromises]);
+
+        return sails.getDatastore().transaction((db) => {
+          updatePromises.push(
+            Game.updateOne({ id: game.id }).set(gameUpdates).usingConnection(db),
+            User.updateOne({ id: player.id }).set(playerUpdates).usingConnection(db)
+          );
+          return Promise.all([game, ...updatePromises]); //fixed
+        });
       }
       return Promise.reject({ message: "It's not your turn." });
     })

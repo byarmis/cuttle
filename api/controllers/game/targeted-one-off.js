@@ -12,6 +12,7 @@ module.exports = function (req, res) {
     promisePoint = Promise.resolve(null);
   }
   Promise.all([
+    //fixed
     promiseGame,
     promisePlayer,
     promiseOpponent,
@@ -62,12 +63,16 @@ module.exports = function (req, res) {
                 };
                 if (point) gameUpdates.attachedToTarget = point.id;
 
-                const updatePromises = [
-                  Game.updateOne(game.id).set(gameUpdates),
-                  // Remove one-off from player's hand
-                  User.removeFromCollection(player.id, 'hand').members([card.id]),
-                ];
-                return Promise.all([game, ...updatePromises]);
+                return sails.getDatastore().transaction((db) => {
+                  const updatePromises = [
+                    Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                    // Remove one-off from player's hand
+                    User.removeFromCollection(player.id, 'hand')
+                      .members([card.id])
+                      .usingConnection(db),
+                  ];
+                  return Promise.all([game, ...updatePromises]); //fixed
+                });
               }
               return Promise.reject({
                 message: 'That card is frozen! You must wait a turn to play it',
@@ -87,7 +92,12 @@ module.exports = function (req, res) {
       return Promise.reject({ message: "It's not your turn." });
     }) //End changeAndSave()
     .then(function populateGame(values) {
-      return Promise.all([gameService.populateGame({ gameId: values[0].id }), values[0]]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
+          values[0],
+        ]); //fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

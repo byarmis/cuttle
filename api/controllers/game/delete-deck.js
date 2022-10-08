@@ -2,11 +2,13 @@ module.exports = function (req, res) {
   return gameService
     .findGame({ gameId: req.session.game })
     .then(function changeAndSave(game) {
-      const updatePromises = [
-        Game.replaceCollection(game.id, 'deck').members([]),
-        Game.addToCollection(game.id, 'scrap').members(game.scrap),
-      ];
-      return Promise.all([game, ...updatePromises]);
+      return sails.getDatastore().transaction((db) => {
+        const updatePromises = [
+          Game.replaceCollection(game.id, 'deck').members([]).usingConnection(db),
+          Game.addToCollection(game.id, 'scrap').members(game.scrap).usingConnection(db),
+        ];
+        return Promise.all([game, ...updatePromises]); // fixed
+      });
     })
     .then(function populateGame(values) {
       const [game] = values;

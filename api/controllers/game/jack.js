@@ -4,7 +4,7 @@ module.exports = function (req, res) {
   const opponent = userService.findUser({ userId: req.body.opId });
   const card = cardService.findCard({ cardId: req.body.cardId });
   const target = cardService.findCard({ cardId: req.body.targetId });
-  Promise.all([game, player, opponent, card, target])
+  Promise.all([game, player, opponent, card, target]) // fixed
     .then(function changeAndSave(values) {
       const [game, player, opponent, card, target] = values;
       if (game.turn % 2 === player.pNum) {
@@ -32,15 +32,24 @@ module.exports = function (req, res) {
                   const cardUpdates = {
                     index: target.attachments.length,
                   };
-                  const updatePromises = [
-                    Game.updateOne(game.id).set(gameUpdates),
-                    User.updateOne(player.id).set(playerUpdates),
-                    User.addToCollection(player.id, 'points').members([target.id]),
-                    User.removeFromCollection(player.id, 'hand').members([card.id]),
-                    Card.updateOne(card.id).set(cardUpdates),
-                    Card.addToCollection(target.id, 'attachments').members([card.id]),
-                  ];
-                  return Promise.all([game, ...updatePromises]);
+
+                  return sails.getDatastore().transaction((db) => {
+                    const updatePromises = [
+                      Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                      User.updateOne(player.id).set(playerUpdates).usingConnection(db),
+                      User.addToCollection(player.id, 'points')
+                        .members([target.id])
+                        .usingConnection(db),
+                      User.removeFromCollection(player.id, 'hand')
+                        .members([card.id])
+                        .usingConnection(db),
+                      Card.updateOne(card.id).set(cardUpdates).usingConnection(db),
+                      Card.addToCollection(target.id, 'attachments')
+                        .members([card.id])
+                        .usingConnection(db),
+                    ];
+                    return Promise.all([game, ...updatePromises]); //fixed
+                  });
                 }
                 return Promise.reject({
                   message: 'That card is frozen! You must wait a turn to play it',
@@ -64,7 +73,12 @@ module.exports = function (req, res) {
     }) //End changeAndSave()
     .then(function populateGame(values) {
       const game = values[0];
-      return Promise.all([gameService.populateGame({ gameId: game.id }), game]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: game.id }).usingConnection(db),
+          game,
+        ]); //fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const [fullGame, gameModel] = values;

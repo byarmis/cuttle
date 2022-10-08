@@ -4,7 +4,7 @@ module.exports = function (req, res) {
   const promiseOpponent = userService.findUser({ userId: req.body.opId });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
   const promiseTarget = cardService.findCard({ cardId: req.body.targetId });
-  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard, promiseTarget])
+  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard, promiseTarget]) //fixed
     .then(function changeAndSave(values) {
       const [game, player, opponent, card, target] = values;
       if (game.turn % 2 !== player.pNum) {
@@ -42,28 +42,37 @@ module.exports = function (req, res) {
       const playerUpdates = {
         frozenId: null,
       };
-      // Consolidate update promises into array
-      const updatePromises = [
-        // Include game record so it can be retrieved downstream
-        game,
-        // Updates to game record e.g. turn
-        Game.updateOne(game.id).set(gameUpdates),
-        // Updates to player record i.e. frozenId
-        User.updateOne(player.id).set(playerUpdates),
-        // Clear target's attachments
-        Card.replaceCollection(target.id, 'attachments').members([]),
-        // Remove card from player's hand
-        User.removeFromCollection(player.id, 'hand').members([card.id]),
-        // Remove target from opponent's points
-        User.removeFromCollection(opponent.id, 'points').members([target.id]),
-        // Scrap cards
-        Game.addToCollection(game.id, 'scrap').members([...attachmentIds, card.id, target.id]),
-      ];
-      return Promise.all(updatePromises);
+      return sails.getDatastore().transaction((db) => {
+        // Consolidate update promises into array
+        const updatePromises = [
+          // Include game record so it can be retrieved downstream
+          game,
+          // Updates to game record e.g. turn
+          Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+          // Updates to player record i.e. frozenId
+          User.updateOne(player.id).set(playerUpdates).usingConnection(db),
+          // Clear target's attachments
+          Card.replaceCollection(target.id, 'attachments').members([]).usingConnection(db),
+          // Remove card from player's hand
+          User.removeFromCollection(player.id, 'hand').members([card.id]).usingConnection(db),
+          // Remove target from opponent's points
+          User.removeFromCollection(opponent.id, 'points').members([target.id]).usingConnection(db),
+          // Scrap cards
+          Game.addToCollection(game.id, 'scrap')
+            .members([...attachmentIds, card.id, target.id])
+            .usingConnection(db),
+        ];
+        return Promise.all(updatePromises); //fixed
+      });
     })
     .then(function populateGame(values) {
       const [game] = values;
-      return Promise.all([gameService.populateGame({ gameId: game.id }), game]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: game.id }).usingConnection(db),
+          game,
+        ]); //fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

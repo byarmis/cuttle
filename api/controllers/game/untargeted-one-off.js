@@ -3,7 +3,7 @@ module.exports = function (req, res) {
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
   const promiseOpponent = userService.findUser({ userId: req.body.opId });
-  Promise.all([promiseGame, promisePlayer, promiseCard, promiseOpponent])
+  Promise.all([promiseGame, promisePlayer, promiseCard, promiseOpponent]) //fixed
     .then(function changeAndSave(values) {
       const [game, player, card, opponent] = values;
       if (game.turn % 2 === player.pNum) {
@@ -62,12 +62,16 @@ module.exports = function (req, res) {
                   const playerUpdates = {
                     frozenId: null,
                   };
-                  const updatePromises = [
-                    Game.updateOne(game.id).set(gameUpdates),
-                    User.removeFromCollection(player.id, 'hand').members([card.id]),
-                    User.updateOne(player.id).set(playerUpdates),
-                  ];
-                  return Promise.all([game, ...updatePromises]);
+                  return sails.getDatastore().transaction((db) => {
+                    const updatePromises = [
+                      Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                      User.removeFromCollection(player.id, 'hand')
+                        .members([card.id])
+                        .usingConnection(db),
+                      User.updateOne(player.id).set(playerUpdates).usingConnection(db),
+                    ];
+                    return Promise.all([game, ...updatePromises]); //fixed
+                  });
                 }
                 return Promise.reject({
                   message: 'That card is frozen! You must wait a turn to play it',
@@ -92,7 +96,12 @@ module.exports = function (req, res) {
       }
     })
     .then(function populateGame(values) {
-      return Promise.all([gameService.populateGame({ gameId: values[0].id }), values[0]]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
+          values[0],
+        ]); //fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

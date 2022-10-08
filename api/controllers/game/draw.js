@@ -17,39 +17,48 @@ module.exports = function (req, res) {
   });
 
   // Make changes after finding records
-  Promise.all([pGame, pUser])
+  Promise.all([pGame, pUser]) //fixed
     .then(function changeAndSave(values) {
       const [game, user] = values;
-      const updatePromises = [game, User.addToCollection(user.id, 'hand').members(game.topCard.id)];
-      const gameUpdates = {
-        topCard: null,
-        log: [...game.log, `${user.username} drew a card`],
-        turn: game.turn + 1,
-        lastEvent: {
-          change: 'draw',
-        },
-      };
-      const userUpdates = {
-        frozenId: null,
-      };
-      if (game.secondCard) {
-        // Replace Top card if second card exists
-        gameUpdates.topCard = game.secondCard.id;
-        // Replace second card if deck isn't empty
-        if (game.deck.length > 0) {
-          const newSecondCard = _.sample(game.deck);
-          gameUpdates.secondCard = newSecondCard.id;
-          updatePromises.push(Game.removeFromCollection(game.id, 'deck').members(newSecondCard.id));
-        } else {
-          gameUpdates.secondCard = null;
+      return sails.getDatastore().transaction((db) => {
+        const updatePromises = [
+          game,
+          User.addToCollection(user.id, 'hand').members(game.topCard.id).usingConnection(db),
+        ];
+        const gameUpdates = {
+          topCard: null,
+          log: [...game.log, `${user.username} drew a card`],
+          turn: game.turn + 1,
+          lastEvent: {
+            change: 'draw',
+          },
+        };
+        const userUpdates = {
+          frozenId: null,
+        };
+        if (game.secondCard) {
+          // Replace Top card if second card exists
+          gameUpdates.topCard = game.secondCard.id;
+          // Replace second card if deck isn't empty
+          if (game.deck.length > 0) {
+            const newSecondCard = _.sample(game.deck);
+            gameUpdates.secondCard = newSecondCard.id;
+            updatePromises.push(
+              Game.removeFromCollection(game.id, 'deck')
+                .members(newSecondCard.id)
+                .usingConnection(db)
+            );
+          } else {
+            gameUpdates.secondCard = null;
+          }
         }
-      }
-      updatePromises.push(
-        Game.updateOne({ id: game.id }).set(gameUpdates),
-        User.updateOne({ id: user.id }).set(userUpdates)
-      );
+        updatePromises.push(
+          Game.updateOne({ id: game.id }).set(gameUpdates).usingConnection(db),
+          User.updateOne({ id: user.id }).set(userUpdates).usingConnection(db)
+        );
 
-      return Promise.all(updatePromises);
+        return Promise.all(updatePromises); //fixed
+      });
     }) //End changeAndSave
     .then(function getPopulatedGame(values) {
       const game = values[0];

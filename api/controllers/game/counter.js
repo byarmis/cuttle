@@ -3,7 +3,7 @@ module.exports = function (req, res) {
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseOpponent = userService.findUser({ userId: req.body.opId });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
-  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard])
+  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard]) // fixed
     .then(function changeAndSave(values) {
       const [game, player, opponent, card] = values;
 
@@ -28,13 +28,17 @@ module.exports = function (req, res) {
                   log: [...logEntry, game.log],
                 },
               };
-              const updatePromises = [
-                Game.updateOne(game.id).set(gameUpdates),
-                Game.addToCollection(game.id, 'twos').members([card.id]),
-                User.removeFromCollection(player.id, 'hand').members([card.id]),
-              ];
+              return sails.getDatastore().transaction((db) => {
+                const updatePromises = [
+                  Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                  Game.addToCollection(game.id, 'twos').members([card.id]).usingConnection(db),
+                  User.removeFromCollection(player.id, 'hand')
+                    .members([card.id])
+                    .usingConnection(db),
+                ];
 
-              return Promise.all([game, ...updatePromises]);
+                return Promise.all([game, ...updatePromises]); // fixed
+              });
             }
             return Promise.reject({
               message: "You cannot counter your opponent's one-off while they have a Queen.",
@@ -49,7 +53,12 @@ module.exports = function (req, res) {
       return Promise.reject({ message: 'You can only play a card that is in your hand' });
     }) //End changeAndSave
     .then(function populateGame(values) {
-      return Promise.all([gameService.populateGame({ gameId: values[0].id }), values[0]]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
+          values[0],
+        ]); // fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

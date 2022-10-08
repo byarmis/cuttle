@@ -5,7 +5,7 @@ module.exports = function (req, res) {
   if (req.session.game && req.session.usr) {
     const promiseGame = gameAPI.findGame(req.session.game);
     const promiseUser = userAPI.findUser(req.session.usr);
-    Promise.all([promiseGame, promiseUser])
+    Promise.all([promiseGame, promiseUser]) // fixed
       // Assign player readiness
       .then(function foundRecords(values) {
         const [game, user] = values;
@@ -37,17 +37,21 @@ module.exports = function (req, res) {
             const findP0 = userService.findUser({ userId: game.players[0].id });
             const findP1 = userService.findUser({ userId: game.players[1].id });
             const data = [Promise.resolve(game), findP0, findP1];
-            for (let suit = 0; suit < 4; suit++) {
-              for (let rank = 1; rank < 14; rank++) {
-                const promiseCard = cardService.createCard({
-                  gameId: game.id,
-                  suit,
-                  rank,
-                });
-                data.push(promiseCard);
+            return sails.getDatastore().transaction((db) => {
+              for (let suit = 0; suit < 4; suit++) {
+                for (let rank = 1; rank < 14; rank++) {
+                  const promiseCard = cardService
+                    .createCard({
+                      gameId: game.id,
+                      suit,
+                      rank,
+                    })
+                    .usingConnection(db);
+                  data.push(promiseCard);
+                }
               }
-            }
-            return resolveMakeDeck(Promise.all(data));
+              return resolveMakeDeck(Promise.all(data)); //fixed
+            });
           })
             .then(function deal(values) {
               const [game, p0, p1, ...deck] = values;
@@ -80,7 +84,7 @@ module.exports = function (req, res) {
                   Game.updateOne({ id: game.id }).set(gameUpdates).usingConnection(db),
                 ];
 
-                return Promise.all([game, p0, p1, ...updatePromises]);
+                return Promise.all([game, p0, p1, ...updatePromises]); // fixed
               });
             })
             .then(function getPopulatedGame(values) {

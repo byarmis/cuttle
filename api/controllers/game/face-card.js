@@ -2,7 +2,7 @@ module.exports = function (req, res) {
   const promiseGame = gameService.findGame({ gameId: req.session.game });
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
-  Promise.all([promiseGame, promisePlayer, promiseCard])
+  Promise.all([promiseGame, promisePlayer, promiseCard]) //fixed
     .then(function changeAndSave(values) {
       const [game, player, card] = values;
       if (game.turn % 2 === player.pNum) {
@@ -27,14 +27,16 @@ module.exports = function (req, res) {
                 frozenId: null,
               };
 
-              const updatePromises = [
-                Game.updateOne({ id: game.id }).set(gameUpdates),
-                User.updateOne({ id: player.id }).set(playerUpdates),
-                User.removeFromCollection(player.id, 'hand').members(card.id),
-                User.addToCollection(player.id, 'faceCards').members(card.id),
-              ];
+              return sails.getDatastore().transaction((db) => {
+                const updatePromises = [
+                  Game.updateOne({ id: game.id }).set(gameUpdates).usingConnection(db),
+                  User.updateOne({ id: player.id }).set(playerUpdates).usingConnection(db),
+                  User.removeFromCollection(player.id, 'hand').members(card.id).usingConnection(db),
+                  User.addToCollection(player.id, 'faceCards').members(card.id).usingConnection(db),
+                ];
 
-              return Promise.all([game, ...updatePromises]);
+                return Promise.all([game, ...updatePromises]); // fixed
+              });
             }
             return Promise.reject({
               message: 'That card is frozen! You must wait a turn to play it',
@@ -50,7 +52,12 @@ module.exports = function (req, res) {
     })
     .then(function populateGame(values) {
       const game = values[0];
-      return Promise.all([gameService.populateGame({ gameId: game.id }), game]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: game.id }).usingConnection(db),
+          game,
+        ]); // fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

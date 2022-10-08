@@ -6,7 +6,7 @@ module.exports = function (req, res) {
   if (req.body.hasOwnProperty('cardId2')) {
     promiseCard2 = cardService.findCard({ cardId: req.body.cardId2 });
   }
-  Promise.all([promiseGame, promisePlayer, promiseCard1, promiseCard2])
+  Promise.all([promiseGame, promisePlayer, promiseCard1, promiseCard2]) //fixed
     .then(function changeAndSave(values) {
       const [game, player, card1, card2] = values;
       // Validate discard
@@ -16,9 +16,9 @@ module.exports = function (req, res) {
         // discarding fewer than 2
         (player.hand.length >= 2 && (!card1 || !card2)) ||
         // card1 was not in player's hand
-        (card1 && card1.hand != player.id) ||
+        (card1 && card1.hand !== player.id) ||
         // card2 was not in player's hand
-        (card2 && card2.hand != player.id)
+        (card2 && card2.hand !== player.id)
       ) {
         return Promise.reject({ message: 'You must select two cards to discard' });
       }
@@ -40,16 +40,23 @@ module.exports = function (req, res) {
       } else {
         gameUpdates.log = [...game.log, `${player.username} discarded the ${card1.name}.`];
       }
-      const updatePromises = [
-        Game.updateOne(game.id).set(gameUpdates),
-        Game.addToCollection(game.id, 'scrap').members(cardsToScrap),
-        User.removeFromCollection(player.id, 'hand').members(cardsToScrap),
-      ];
-      return Promise.all([game, ...updatePromises]);
+      return sails.getDatastore().transaction((db) => {
+        const updatePromises = [
+          Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+          Game.addToCollection(game.id, 'scrap').members(cardsToScrap).usingConnection(db),
+          User.removeFromCollection(player.id, 'hand').members(cardsToScrap).usingConnection(db),
+        ];
+        return Promise.all([game, ...updatePromises]); //fixed
+      });
     }) // End changeAndSave
     .then(function populateGame(values) {
       const [game] = values;
-      return Promise.all([gameService.populateGame({ gameId: game.id }), game]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: game.id }).usingConnection(db),
+          game,
+        ]); //fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

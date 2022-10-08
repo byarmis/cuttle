@@ -31,7 +31,7 @@ module.exports = function (req, res) {
   const findP0 = User.findOne({ id: req.body.p0Id }).populateAll();
   const findP1 = User.findOne({ id: req.body.p1Id }).populateAll();
 
-  return Promise.all([findGame, findP0, findP1])
+  return Promise.all([findGame, findP0, findP1]) //fixed
     .then(function resetGame(values) {
       // Put all cards back in deck
       const [game, p0, p1] = values;
@@ -52,17 +52,20 @@ module.exports = function (req, res) {
         ...oldP1Points,
         ...oldP1FaceCards,
       ];
-      const updatePromises = [
-        Game.addToCollection(game.id, 'deck').members(addToDeck),
-        User.replaceCollection(p0.id, 'hand').members([]),
-        User.replaceCollection(p0.id, 'points').members([]),
-        User.replaceCollection(p0.id, 'faceCards').members([]),
-        User.replaceCollection(p1.id, 'hand').members([]),
-        User.replaceCollection(p1.id, 'points').members([]),
-        User.replaceCollection(p1.id, 'faceCards').members([]),
-      ];
 
-      return Promise.all([game, p0, p1, ...updatePromises]);
+      return sails.getDatastore().transaction((db) => {
+        const updatePromises = [
+          Game.addToCollection(game.id, 'deck').members(addToDeck).usingConnection(db),
+          User.replaceCollection(p0.id, 'hand').members([]).usingConnection(db),
+          User.replaceCollection(p0.id, 'points').members([]).usingConnection(db),
+          User.replaceCollection(p0.id, 'faceCards').members([]).usingConnection(db),
+          User.replaceCollection(p1.id, 'hand').members([]).usingConnection(db),
+          User.replaceCollection(p1.id, 'points').members([]).usingConnection(db),
+          User.replaceCollection(p1.id, 'faceCards').members([]).usingConnection(db),
+        ];
+
+        return Promise.all([game, p0, p1, ...updatePromises]); //fixed
+      });
     })
     .then(function placeCards(values) {
       // Load game according to fixture
@@ -98,19 +101,22 @@ module.exports = function (req, res) {
         topCard,
         secondCard,
       };
-      const updatePromises = [
-        Game.updateOne(game.id).set(gameUpdates),
-        User.replaceCollection(p0.id, 'hand').members(p0HandCardIds),
-        User.replaceCollection(p0.id, 'points').members(p0PointCardIds),
-        User.replaceCollection(p0.id, 'faceCards').members(p0FaceCardIds),
-        User.replaceCollection(p1.id, 'hand').members(p1HandCardIds),
-        User.replaceCollection(p1.id, 'points').members(p1PointCardIds),
-        User.replaceCollection(p1.id, 'faceCards').members(p1FaceCardIds),
-        Game.replaceCollection(game.id, 'scrap').members(scrapCardIds),
-        Game.removeFromCollection(game.id, 'deck').members(allRequestedCards),
-      ];
 
-      return Promise.all([game, ...updatePromises]);
+      return sails.getDatastore().transaction((db) => {
+        const updatePromises = [
+          Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+          User.replaceCollection(p0.id, 'hand').members(p0HandCardIds).usingConnection(db),
+          User.replaceCollection(p0.id, 'points').members(p0PointCardIds).usingConnection(db),
+          User.replaceCollection(p0.id, 'faceCards').members(p0FaceCardIds).usingConnection(db),
+          User.replaceCollection(p1.id, 'hand').members(p1HandCardIds).usingConnection(db),
+          User.replaceCollection(p1.id, 'points').members(p1PointCardIds).usingConnection(db),
+          User.replaceCollection(p1.id, 'faceCards').members(p1FaceCardIds).usingConnection(db),
+          Game.replaceCollection(game.id, 'scrap').members(scrapCardIds).usingConnection(db),
+          Game.removeFromCollection(game.id, 'deck').members(allRequestedCards).usingConnection(db),
+        ];
+
+        return Promise.all([game, ...updatePromises]); //fixed
+      });
     })
     .then(function populateGame(values) {
       const [game] = values;

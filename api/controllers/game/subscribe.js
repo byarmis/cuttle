@@ -11,7 +11,7 @@ module.exports = function (req, res) {
   const promiseClearOldGame = gameService.clearGame({ userId: req.session.usr });
   const promiseGame = gameAPI.findGame(req.body.id);
   const promiseUser = userAPI.findUser(req.session.usr);
-  Promise.all([promiseGame, promiseUser, promiseClearOldGame])
+  Promise.all([promiseGame, promiseUser, promiseClearOldGame]) //fixed
     .then(async function success(arr) {
       // Catch promise values
       const [game, user] = arr;
@@ -36,11 +36,15 @@ module.exports = function (req, res) {
       // Set session data
       req.session.game = game.id;
       req.session.pNum = pNum;
-      // Update models
-      const addPlayerToGame = Game.addToCollection(game.id, 'players').members([user.id]);
-      const updatePlayer = User.updateOne({ id: user.id }).set({ pNum });
+      return sails.getDatastore().transaction((db) => {
+        // Update models
+        const addPlayerToGame = Game.addToCollection(game.id, 'players')
+          .members([user.id])
+          .usingConnection(db);
+        const updatePlayer = User.updateOne({ id: user.id }).set({ pNum }).usingConnection(db);
 
-      return Promise.all([game, updatePlayer, addPlayerToGame]);
+        return Promise.all([game, updatePlayer, addPlayerToGame]); //fixed
+      });
     })
     .then(function respond(values) {
       const [game, user] = values;
