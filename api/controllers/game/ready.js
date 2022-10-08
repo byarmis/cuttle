@@ -37,7 +37,7 @@ module.exports = function (req, res) {
             const findP0 = userService.findUser({ userId: game.players[0].id });
             const findP1 = userService.findUser({ userId: game.players[1].id });
             const data = [Promise.resolve(game), findP0, findP1];
-            sails.getDatastore().transaction((db) => {
+            sails.getDatastore().transaction(async (db) => {
               for (let suit = 0; suit < 4; suit++) {
                 for (let rank = 1; rank < 14; rank++) {
                   const promiseCard = cardService
@@ -50,10 +50,10 @@ module.exports = function (req, res) {
                   data.push(promiseCard);
                 }
               }
-              return resolveMakeDeck(Promise.all(data));
+              await resolveMakeDeck(Promise.all(data));
             });
           })
-            .then(function deal(values) {
+            .then(async function deal(values) {
               const [game, p0, p1, ...deck] = values;
 
               // Shuffle deck & map cards => thier ids
@@ -71,7 +71,7 @@ module.exports = function (req, res) {
               gameUpdates.p0 = p0.id;
               gameUpdates.p1 = p1.id;
 
-              return sails.getDatastore().transaction((db) => {
+              return sails.getDatastore().transaction(async (db) => {
                 // Update records
                 const updatePromises = [
                   // Deal to p0
@@ -84,7 +84,7 @@ module.exports = function (req, res) {
                   Game.updateOne({ id: game.id }).set(gameUpdates).usingConnection(db),
                 ];
 
-                return Promise.all([game, p0, p1, ...updatePromises]);
+                await Promise.all([game, p0, p1, ...updatePromises]);
               });
             })
             .then(function getPopulatedGame(values) {
