@@ -4,7 +4,7 @@ module.exports = function (req, res) {
   const promiseOpponent = userService.findUser({ userId: req.body.opId });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
   const promiseTarget = cardService.findCard({ cardId: req.body.targetId });
-  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard, promiseTarget])
+  Promise.all([promiseGame, promisePlayer, promiseOpponent, promiseCard, promiseTarget]) // fixed
     .then(function changeAndSave(values) {
       const [game, player, opponent, card, target] = values;
       if (game.turn % 2 === player.pNum) {
@@ -39,18 +39,28 @@ module.exports = function (req, res) {
                     change: 'sevenScuttle',
                   },
                 };
-                const updatePromises = [
-                  Game.updateOne(game.id).set(gameUpdates),
-                  // Remove new secondCard from deck
-                  Game.removeFromCollection(game.id, 'deck').members(cardsToRemoveFromDeck),
-                  // Remove target from opponent points
-                  User.removeFromCollection(opponent.id, 'points').members([target.id]),
-                  // Remove attachments from target
-                  Card.replaceCollection(target.id, 'attachments').members([]),
-                  // Scrap relevant cards
-                  Game.addToCollection(game.id, 'scrap').members(cardsToScrap),
-                ];
-                return Promise.all([game, ...updatePromises]);
+                return sails.getDatastore().transaction((db) => {
+                  const updatePromises = [
+                    Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                    // Remove new secondCard from deck
+                    Game.removeFromCollection(game.id, 'deck')
+                      .members(cardsToRemoveFromDeck)
+                      .usingConnection(db),
+                    // Remove target from opponent points
+                    User.removeFromCollection(opponent.id, 'points')
+                      .members([target.id])
+                      .usingConnection(db),
+                    // Remove attachments from target
+                    Card.replaceCollection(target.id, 'attachments')
+                      .members([])
+                      .usingConnection(db),
+                    // Scrap relevant cards
+                    Game.addToCollection(game.id, 'scrap')
+                      .members(cardsToScrap)
+                      .usingConnection(db),
+                  ];
+                  return Promise.all([game, ...updatePromises]); // fixed
+                });
               }
               return Promise.reject({
                 message:
@@ -70,7 +80,12 @@ module.exports = function (req, res) {
       return Promise.reject({ message: "It's not your turn" });
     }) //End changeAndSave()
     .then(function populateGame(values) {
-      return Promise.all([gameService.populateGame({ gameId: values[0].id }), values[0]]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
+          values[0],
+        ]); //fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

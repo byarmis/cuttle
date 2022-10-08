@@ -2,7 +2,7 @@ module.exports = function (req, res) {
   const promiseGame = gameService.findGame({ gameId: req.session.game });
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
-  Promise.all([promiseGame, promisePlayer, promiseCard])
+  Promise.all([promiseGame, promisePlayer, promiseCard]) // fixed
     .then(function changeAndSave(values) {
       const [game, player, card] = values;
       // var game = values[0], player = values[1], card = values[2];
@@ -34,13 +34,17 @@ module.exports = function (req, res) {
               },
               log: [...game.log, logEntry],
             };
-            const updatePromises = [
-              Game.updateOne(game.id).set(gameUpdates),
-              Game.removeFromCollection(game.id, 'deck').members(cardsToRemoveFromDeck),
-              User.updateOne(player.id).set(playerUpdates),
-              User.addToCollection(player.id, 'faceCards').members([card.id]),
-            ];
-            return Promise.all([game, ...updatePromises]);
+            return sails.getDatastore().transaction((db) => {
+              const updatePromises = [
+                Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                Game.removeFromCollection(game.id, 'deck')
+                  .members(cardsToRemoveFromDeck)
+                  .usingConnection(db),
+                User.updateOne(player.id).set(playerUpdates).usingConnection(db),
+                User.addToCollection(player.id, 'faceCards').members([card.id]).usingConnection(db),
+              ];
+              return Promise.all([game, ...updatePromises]); // fixed
+            });
           }
           return Promise.reject({
             message: 'You can only play Kings, Queens, and Eights as Face Cards, without a TARGET',
@@ -54,7 +58,12 @@ module.exports = function (req, res) {
     })
     .then(function populateGame(values) {
       const [game] = values;
-      return Promise.all([gameService.populateGame({ gameId: game.id }), game]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: game.id }).usingConnection(db),
+          game,
+        ]); // fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

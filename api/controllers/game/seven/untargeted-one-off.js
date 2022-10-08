@@ -3,7 +3,7 @@ module.exports = function (req, res) {
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
   const promiseOpponent = userService.findUser({ userId: req.body.opId });
-  Promise.all([promiseGame, promisePlayer, promiseCard, promiseOpponent])
+  Promise.all([promiseGame, promisePlayer, promiseCard, promiseOpponent]) //fixed
     .then(function changeAndSave(values) {
       const [game, player, card, opponent] = values;
       if (game.turn % 2 === player.pNum) {
@@ -55,11 +55,16 @@ module.exports = function (req, res) {
                   pNum: req.session.pNum,
                 },
               };
-              const updatePromises = [
-                Game.updateOne(game.id).set(gameUpdates),
-                Game.removeFromCollection(game.id, 'deck').members(cardsToRemoveFromDeck),
-              ];
-              return Promise.all([game, ...updatePromises]);
+
+              return sails.getDatastore().transaction((db) => {
+                const updatePromises = [
+                  Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                  Game.removeFromCollection(game.id, 'deck')
+                    .members(cardsToRemoveFromDeck)
+                    .usingConnection(db),
+                ];
+                return Promise.all([game, ...updatePromises]); //fixed
+              });
             default:
               return Promise.reject({
                 message: 'You cannot play that card as a ONE-OFF without a target',
@@ -76,7 +81,12 @@ module.exports = function (req, res) {
     })
     .then(function populateGame(values) {
       const [game] = values;
-      return Promise.all([gameService.populateGame({ gameId: game.id }), game]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: game.id }).usingConnection(db),
+          game,
+        ]); //fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

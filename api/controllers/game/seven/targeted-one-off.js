@@ -10,6 +10,7 @@ module.exports = function (req, res) {
     promisePoint = cardService.findCard({ cardId: req.body.pointId });
   }
   Promise.all([
+    //fixed
     promiseGame,
     promisePlayer,
     promiseOpponent,
@@ -65,12 +66,16 @@ module.exports = function (req, res) {
 
             if (point) gameUpdates.attachedToTarget = point.id;
 
-            const updatePromises = [
-              Game.updateOne(game.id).set(gameUpdates),
-              Game.removeFromCollection(game.id, 'deck').members(cardsToRemoveFromDeck),
-            ];
+            return sails.getDatastore().transaction((db) => {
+              const updatePromises = [
+                Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                Game.removeFromCollection(game.id, 'deck')
+                  .members(cardsToRemoveFromDeck)
+                  .usingConnection(db),
+              ];
 
-            return Promise.all([game, ...updatePromises]);
+              return Promise.all([game, ...updatePromises]); // fixed
+            });
           }
         } else {
           return Promise.reject({
@@ -83,7 +88,12 @@ module.exports = function (req, res) {
     })
     .then(function populateGame(values) {
       const [game] = values;
-      return Promise.all([gameService.populateGame({ gameId: game.id }), game]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: game.id }).usingConnection(db),
+          game,
+        ]);
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];

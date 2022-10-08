@@ -6,7 +6,7 @@ module.exports = function (req, res) {
   const promiseTarget =
     req.body.targetId !== -1 ? cardService.findCard({ cardId: req.body.targetId }) : -1; // -1 for double jacks with no points to steal special case
   let promises = [promiseGame, promisePlayer, promiseOpponent, promiseCard, promiseTarget];
-  Promise.all(promises)
+  Promise.all(promises) // fixed
     .then(function changeAndSave(values) {
       const [game, player, opponent, card, target] = values;
       let gameUpdates = {
@@ -39,13 +39,17 @@ module.exports = function (req, res) {
               },
             };
 
-            updatePromises = [
-              Game.updateOne(game.id).set(gameUpdates),
-              User.updateOne(player.id).set(playerUpdates),
-              Game.addToCollection(game.id, 'scrap').members([card.id]),
-              Game.removeFromCollection(game.id, 'deck').members(cardsToRemoveFromDeck),
-            ];
-            return Promise.all([game, ...updatePromises]);
+            return sails.getDatastore().transaction((db) => {
+              updatePromises = [
+                Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                User.updateOne(player.id).set(playerUpdates).usingConnection(db),
+                Game.addToCollection(game.id, 'scrap').members([card.id]).usingConnection(db),
+                Game.removeFromCollection(game.id, 'deck')
+                  .members(cardsToRemoveFromDeck)
+                  .usingConnection(db),
+              ];
+              return Promise.all([game, ...updatePromises]); // fixed
+            });
           }
           const queenCount = userService.queenCount({ user: opponent });
           switch (queenCount) {
@@ -84,19 +88,28 @@ module.exports = function (req, res) {
                   `${player.username} stole ${opponent.username}'s ${target.name} with the ${card.name} from the top of the deck.`,
                 ],
               };
-              updatePromises = [
-                Game.updateOne(game.id).set(gameUpdates),
-                User.updateOne(player.id).set(playerUpdates),
-                // Set card's index within attachments
-                Card.updateOne(card.id).set(cardUpdates),
-                // Remove new second card fromd eck
-                Game.removeFromCollection(game.id, 'deck').members(cardsToRemoveFromDeck),
-                // Add jack to target's attachments
-                Card.addToCollection(target.id, 'attachments').members([card.id]),
-                // Steal point card
-                User.addToCollection(player.id, 'points').members([target.id]),
-              ];
-              return Promise.all([game, ...updatePromises]);
+
+              return sails.getDatastore().transaction((db) => {
+                updatePromises = [
+                  Game.updateOne(game.id).set(gameUpdates).usingConnection(db),
+                  User.updateOne(player.id).set(playerUpdates).usingConnection(db),
+                  // Set card's index within attachments
+                  Card.updateOne(card.id).set(cardUpdates).usingConnection(db),
+                  // Remove new second card fromd eck
+                  Game.removeFromCollection(game.id, 'deck')
+                    .members(cardsToRemoveFromDeck)
+                    .usingConnection(db),
+                  // Add jack to target's attachments
+                  Card.addToCollection(target.id, 'attachments')
+                    .members([card.id])
+                    .usingConnection(db),
+                  // Steal point card
+                  User.addToCollection(player.id, 'points')
+                    .members([target.id])
+                    .usingConnection(db),
+                ];
+                return Promise.all([game, ...updatePromises]); // fixed
+              });
             }
             return Promise.reject({
               message: "You can only steal your opponent's points with a jack",
@@ -111,7 +124,12 @@ module.exports = function (req, res) {
       return Promise.reject({ message: "It's not your turn" });
     })
     .then(function populateGame(values) {
-      return Promise.all([gameService.populateGame({ gameId: values[0].id }), values[0]]);
+      return sails.getDatastore().transaction((db) => {
+        return Promise.all([
+          gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
+          values[0],
+        ]); // fixed
+      });
     })
     .then(async function publishAndRespond(values) {
       const fullGame = values[0];
