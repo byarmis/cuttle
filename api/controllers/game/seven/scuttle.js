@@ -84,7 +84,7 @@ module.exports = function (req, res) {
         return Promise.all([
           gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
           values[0],
-        ]); //fixed
+        ]);
       });
     })
     .then(async function publishAndRespond(values) {

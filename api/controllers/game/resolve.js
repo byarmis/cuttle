@@ -5,7 +5,7 @@ module.exports = function (req, res) {
   const promiseOpponent = userService.findUser({ userId: req.session.usr });
   const promisePlayerPoints = cardService.findPoints({ userId: req.body.opId });
   const promiseOpPoints = cardService.findPoints({ userId: req.session.usr });
-  Promise.all([promiseGame, promisePlayer, promiseOpponent, promisePlayerPoints, promiseOpPoints]) //fixed
+  Promise.all([promiseGame, promisePlayer, promiseOpponent, promisePlayerPoints, promiseOpPoints])
     .then(function changeAndSave(values) {
       const [game, player, opponent, playerPoints, opPoints] = values;
       let happened = true;
@@ -378,13 +378,12 @@ module.exports = function (req, res) {
         ];
         const dataToReturn = [game, oneOff, player.pNum, happened, ...updatePromises];
 
-        return Promise.all(dataToReturn); //fixed
+        return Promise.all(dataToReturn);
       });
     }) //End changeAndSave
     .then(function populateGame(values) {
       const [game, oneOff, pNum, happened] = values;
       return Promise.all([
-        //fixed
         gameService.populateGame({ gameId: game.id }),
         oneOff,
         pNum,

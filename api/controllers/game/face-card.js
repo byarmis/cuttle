@@ -2,7 +2,7 @@ module.exports = function (req, res) {
   const promiseGame = gameService.findGame({ gameId: req.session.game });
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
-  Promise.all([promiseGame, promisePlayer, promiseCard]) //fixed
+  Promise.all([promiseGame, promisePlayer, promiseCard])
     .then(function changeAndSave(values) {
       const [game, player, card] = values;
       if (game.turn % 2 === player.pNum) {

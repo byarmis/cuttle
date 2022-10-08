@@ -17,7 +17,7 @@ module.exports = function (req, res) {
   });
 
   // Make changes after finding records
-  Promise.all([pGame, pUser]) //fixed
+  Promise.all([pGame, pUser])
     .then(function changeAndSave(values) {
       const [game, user] = values;
       return sails.getDatastore().transaction((db) => {
@@ -57,7 +57,7 @@ module.exports = function (req, res) {
           User.updateOne({ id: user.id }).set(userUpdates).usingConnection(db)
         );
 
-        return Promise.all(updatePromises); //fixed
+        return Promise.all(updatePromises);
       });
     }) //End changeAndSave
     .then(function getPopulatedGame(values) {

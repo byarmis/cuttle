@@ -10,7 +10,6 @@ module.exports = function (req, res) {
     promisePoint = cardService.findCard({ cardId: req.body.pointId });
   }
   Promise.all([
-    //fixed
     promiseGame,
     promisePlayer,
     promiseOpponent,

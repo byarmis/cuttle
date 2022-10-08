@@ -6,7 +6,7 @@ module.exports = function (req, res) {
   if (req.body.hasOwnProperty('cardId2')) {
     promiseCard2 = cardService.findCard({ cardId: req.body.cardId2 });
   }
-  Promise.all([promiseGame, promisePlayer, promiseCard1, promiseCard2]) //fixed
+  Promise.all([promiseGame, promisePlayer, promiseCard1, promiseCard2])
     .then(function changeAndSave(values) {
       const [game, player, card1, card2] = values;
       // Validate discard
@@ -46,7 +46,7 @@ module.exports = function (req, res) {
           Game.addToCollection(game.id, 'scrap').members(cardsToScrap).usingConnection(db),
           User.removeFromCollection(player.id, 'hand').members(cardsToScrap).usingConnection(db),
         ];
-        return Promise.all([game, ...updatePromises]); //fixed
+        return Promise.all([game, ...updatePromises]);
       });
     }) // End changeAndSave
     .then(function populateGame(values) {
@@ -55,7 +55,7 @@ module.exports = function (req, res) {
         return Promise.all([
           gameService.populateGame({ gameId: game.id }).usingConnection(db),
           game,
-        ]); //fixed
+        ]);
       });
     })
     .then(async function publishAndRespond(values) {

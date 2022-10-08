@@ -2,7 +2,7 @@ module.exports = function (req, res) {
   const promiseGame = gameService.findGame({ gameId: req.session.game });
   const promisePlayer = userService.findUser({ userId: req.session.usr });
   const promiseCard = cardService.findCard({ cardId: req.body.cardId });
-  Promise.all([promiseGame, promisePlayer, promiseCard]) //fixed
+  Promise.all([promiseGame, promisePlayer, promiseCard])
     .then(function changeAndSave(values) {
       const [game, player, card] = values;
 
@@ -30,7 +30,7 @@ module.exports = function (req, res) {
                   User.removeFromCollection(player.id, 'hand').members(card.id).usingConnection(db),
                   User.addToCollection(player.id, 'points').members(card.id).usingConnection(db),
                 ];
-                return Promise.all([game, ...updatePromises]); //fixed
+                return Promise.all([game, ...updatePromises]);
               });
             }
             return Promise.reject({
@@ -49,7 +49,7 @@ module.exports = function (req, res) {
         return Promise.all([
           gameService.populateGame({ gameId: game.id }).usingConnection(db),
           game,
-        ]); //fixed
+        ]);
       });
     })
     .then(async function publishAndRespond(values) {

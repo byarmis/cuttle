@@ -12,7 +12,6 @@ module.exports = function (req, res) {
     promisePoint = Promise.resolve(null);
   }
   Promise.all([
-    //fixed
     promiseGame,
     promisePlayer,
     promiseOpponent,
@@ -71,7 +70,7 @@ module.exports = function (req, res) {
                       .members([card.id])
                       .usingConnection(db),
                   ];
-                  return Promise.all([game, ...updatePromises]); //fixed
+                  return Promise.all([game, ...updatePromises]);
                 });
               }
               return Promise.reject({
@@ -96,7 +95,7 @@ module.exports = function (req, res) {
         return Promise.all([
           gameService.populateGame({ gameId: values[0].id }).usingConnection(db),
           values[0],
-        ]); //fixed
+        ]);
       });
     })
     .then(async function publishAndRespond(values) {

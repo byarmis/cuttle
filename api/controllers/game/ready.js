@@ -50,7 +50,7 @@ module.exports = function (req, res) {
                   data.push(promiseCard);
                 }
               }
-              return resolveMakeDeck(Promise.all(data)); //fixed
+              return resolveMakeDeck(Promise.all(data));
             });
           })
             .then(function deal(values) {

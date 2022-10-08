@@ -31,7 +31,7 @@ module.exports = function (req, res) {
   const findP0 = User.findOne({ id: req.body.p0Id }).populateAll();
   const findP1 = User.findOne({ id: req.body.p1Id }).populateAll();
 
-  return Promise.all([findGame, findP0, findP1]) //fixed
+  return Promise.all([findGame, findP0, findP1])
     .then(function resetGame(values) {
       // Put all cards back in deck
       const [game, p0, p1] = values;
@@ -64,7 +64,7 @@ module.exports = function (req, res) {
           User.replaceCollection(p1.id, 'faceCards').members([]).usingConnection(db),
         ];
 
-        return Promise.all([game, p0, p1, ...updatePromises]); //fixed
+        return Promise.all([game, p0, p1, ...updatePromises]);
       });
     })
     .then(function placeCards(values) {
@@ -115,7 +115,7 @@ module.exports = function (req, res) {
           Game.removeFromCollection(game.id, 'deck').members(allRequestedCards).usingConnection(db),
         ];
 
-        return Promise.all([game, ...updatePromises]); //fixed
+        return Promise.all([game, ...updatePromises]);
       });
     })
     .then(function populateGame(values) {
