@@ -8,9 +8,8 @@ module.exports = function (req, res) {
     Promise.all([promiseGame, promiseUser])
       // Assign player readiness
       .then(function foundRecords(values) {
-        const game = values[0];
-        const user = values[1];
-        let { pNum } = user;
+        const [game, user] = values;
+        const { pNum } = user;
         let bothReady = false;
         const gameUpdates = {};
         switch (pNum) {
@@ -26,6 +25,8 @@ module.exports = function (req, res) {
               bothReady = true;
             }
             break;
+          default:
+            return res.badRequest({ message: `Unknown player number ${pNum}` });
         }
         if (bothReady) {
           // Inform all clients this game is starting
@@ -66,19 +67,21 @@ module.exports = function (req, res) {
               gameUpdates.p0 = p0.id;
               gameUpdates.p1 = p1.id;
 
-              // Update records
-              const updatePromises = [
-                // Deal to p0
-                User.replaceCollection(p0.id, 'hand').members(dealToP0),
-                // Deal to p1
-                User.replaceCollection(p1.id, 'hand').members(dealToP1),
-                // Replace Deck
-                Game.replaceCollection(game.id, 'deck').members(shuffledDeck),
-                // Other game updates
-                Game.updateOne({ id: game.id }).set(gameUpdates),
-              ];
+              return sails.getDatastore().transaction((db) => {
+                // Update records
+                const updatePromises = [
+                  // Deal to p0
+                  User.replaceCollection(p0.id, 'hand').members(dealToP0).usingConnection(db),
+                  // Deal to p1
+                  User.replaceCollection(p1.id, 'hand').members(dealToP1).usingConnection(db),
+                  // Replace Deck
+                  Game.replaceCollection(game.id, 'deck').members(shuffledDeck).usingConnection(db),
+                  // Other game updates
+                  Game.updateOne({ id: game.id }).set(gameUpdates).usingConnection(db),
+                ];
 
-              return Promise.all([game, p0, p1, ...updatePromises]);
+                return Promise.all([game, p0, p1, ...updatePromises]);
+              });
             })
             .then(function getPopulatedGame(values) {
               return gameService.populateGame({ gameId: values[0].id });

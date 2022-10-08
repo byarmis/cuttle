@@ -96,6 +96,7 @@ Cypress.Commands.add('subscribeOpponent', (id) => {
         if (jwres.statusCode === 200) {
           return resolve();
         }
+        console.log(res);
         return reject(new Error('error subscribing'));
       }
     );

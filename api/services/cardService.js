@@ -35,9 +35,7 @@ module.exports = {
         options.suit < 14 &&
         options.gameId;
       if (validArgs) {
-        var { gameId } = options;
-        var { suit } = options;
-        var { rank } = options;
+        const { gameId, suit, rank } = options;
         var str_rank = '';
         var str_suit = '';
         var str_name = '';
