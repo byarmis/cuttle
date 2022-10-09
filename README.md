@@ -129,6 +129,20 @@ npm run storybook
 ```
  It will start automatically on localhost:6006 and open a new tab in your browser.
 
+### Running the database locally
+#### With Docker (optional)
+* Install [Docker](https://docs.docker.com/engine/install/)
+* `docker run --name cuttle -e POSTGRES_PASSWORD=password -d -p 5432:5432 postgres:13.8`
+* `docker exec -it cuttle bash`
+* `su postgres`
+
+#### Create the `cuttle` database
+* Connect to the database: `psql`
+* `CREATE DATABASE cuttle;`
+
+#### Start the server connected to the Postgres database
+* `NODE_ENV=staging DATABASE_URL=postgres://postgres:password@localhost:5432/cuttle npm run start:server`
+
 ## Game Rules
 ### Players and Cards
 Cuttle is a 2-player card game, played with a standard 52 card deck, without jokers. You can read the rules with interactive gif-previews the  [rules page](https://www.cuttle.cards/#/rules)
@@ -153,7 +167,7 @@ You may play any number card, Ace-Ten for the number of points shown on the card
 	* To play a card for points, click a card in your hand to select it, then click your field.
 
 3. **Scuttling:**
-You may player a number card from your hand onto a lower valued number card that your opponent has played for points; this destroys both cards. You may also scuttle a card of the same rank, if your card has the higher suit. The suit order is Clubs (weakest) < Diamonds < Hearts < Spades (strongest).
+You may play a number card from your hand onto a lower valued number card that your opponent has played for points; this destroys both cards. You may also scuttle a card of the same rank, if your card has the higher suit. The suit order is Clubs (weakest) < Diamonds < Hearts < Spades (strongest).
 
 	* To scuttle an opponent's point card, click a higher number card (Ace - Ten) in your hand to select it, then click the card you'd like to scuttle.
 

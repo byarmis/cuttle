@@ -50,7 +50,7 @@ module.exports = {
       /*
       So, a slight aside: || would work above instead of the nullish coalescing
       operator (??) since the options that the first operation (the {...}[rank]
-      bit) could return are not falsey (i.e. not the empty string).  But, in
+      bit) could return are not falsey (i.e. not an empty string).  But, in
       principle, we're coalescing nulls instead of falsey things.
 
       If you're not familiar, ?? is like ||, but it picks the second
